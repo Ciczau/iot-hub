@@ -9,6 +9,27 @@ import {
 const opcuaClient = OPCUAClient.create({ endpointMustExist: false });
 const opcuaEndpointUrl = "opc.tcp://localhost:4840";
 const NS = 2;
+const rootPath = "RootFolder";
+
+async function browseDevices(session: ClientSession): Promise<string[]> {
+  try {
+    const rootBrowseResult = await session.browse(rootPath);
+    const objectsFolder = rootBrowseResult.references?.find(
+      (ref) => ref.browseName.name === "Objects"
+    );
+    const browsePath = `ns=${objectsFolder?.nodeId.namespace};i=${objectsFolder?.nodeId.value}`;
+    const browseResult = await session.browse(browsePath);
+
+    const devices = browseResult.references
+      ?.filter((ref) => ref.nodeId.namespace === NS)
+      .map((ref) => ref.browseName.name);
+
+    return (devices as string[]) || [];
+  } catch (error) {
+    console.error("Error browsing devices:", error);
+    return [];
+  }
+}
 
 async function monitorDevice(
   session: ClientSession,
@@ -57,7 +78,11 @@ async function main() {
       priority: 10,
     });
 
-    await monitorDevice(session, subscription, "Device 1", NS);
+    const devices = (await browseDevices(session)) || [];
+
+    for (const device of devices) {
+      await monitorDevice(session, subscription, device, NS);
+    }
   } catch (err) {
     console.error("Error in OPC UA client setup:", err);
   }
