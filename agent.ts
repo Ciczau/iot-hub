@@ -53,17 +53,21 @@ function logError(deviceId: string, errorCode: number) {
     deviceErrors[deviceId] = [];
   }
 
-  // Dodaj nowy błąd
   deviceErrors[deviceId].push({ time: now, error: errorCode });
 
-  // Usuń błędy starsze niż minuta
+  // Delete errors older than 1 minute
   deviceErrors[deviceId] = deviceErrors[deviceId].filter(
     (e) => now - e.time < 60000
   );
 
-  // Sprawdź czy wszystkie trzy błędy wystąpiły
+  // Check if there are 3 different errors in the last minute
   const errorSet = new Set(deviceErrors[deviceId].map((e) => e.error));
-  return errorSet.has(2) && errorSet.has(4) && errorSet.has(8);
+  return (
+    (errorSet.has(2) && errorSet.has(4) && errorSet.has(8)) ||
+    (errorSet.has(6) && errorSet.has(8)) ||
+    (errorSet.has(2) && errorSet.has(12)) ||
+    (errorSet.has(4) && errorSet.has(10))
+  );
 }
 
 async function handleDeviceError(deviceId: string, deviceData: any) {
