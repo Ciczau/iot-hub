@@ -6,6 +6,13 @@ import {
   TimestampsToReturn,
 } from "node-opcua";
 
+import { Client, Message } from "azure-iot-device";
+import { Mqtt } from "azure-iot-device-mqtt";
+
+const deviceConnectionString =
+  "HostName=ZajeciaWMII.azure-devices.net;DeviceId=test_device;SharedAccessKey=vZ6b5rgwh9jzhDRdVuK4rXSfV2l9LFrXHAIoTHe87pg=";
+
+const deviceClient = Client.fromConnectionString(deviceConnectionString, Mqtt);
 const opcuaClient = OPCUAClient.create({ endpointMustExist: false });
 const opcuaEndpointUrl = "opc.tcp://localhost:4840";
 const NS = 2;
@@ -48,6 +55,8 @@ async function monitorDevice(
     emergencyStop: `ns=${ns};s=${deviceId}/EmergencyStop`,
   };
 
+  const deviceData: { [key: string]: any } = { deviceId };
+
   for (const [key, nodeId] of Object.entries(nodeIds)) {
     try {
       const monitoredItem = await subscription.monitor(
@@ -57,7 +66,26 @@ async function monitorDevice(
       );
 
       monitoredItem.on("changed", async (dataValue) => {
-        console.log(`Data value changed for ${nodeId}:`, dataValue.value.value);
+        let value = dataValue.value.value;
+
+        if (Array.isArray(value)) {
+          //handle array values from goodCount and badCount
+          value = value[1];
+        }
+        deviceData[key] = value;
+
+        const message = new Message(JSON.stringify(deviceData));
+
+        try {
+          await deviceClient.sendEvent(message);
+          console.log(
+            `Sent data for ${deviceId} to IoT Hub: ${JSON.stringify(
+              deviceData
+            )}`
+          );
+        } catch (err) {
+          console.error(`Error sending data for ${deviceId} to IoT Hub`, err);
+        }
       });
     } catch (err) {
       console.error(`Error monitoring node ${nodeId} for ${deviceId}:`, err);
