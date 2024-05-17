@@ -6,7 +6,12 @@ import {
   TimestampsToReturn,
 } from "node-opcua";
 
-import { Client, Message } from "azure-iot-device";
+import {
+  Client,
+  DeviceMethodRequest,
+  DeviceMethodResponse,
+  Message,
+} from "azure-iot-device";
 import { Mqtt } from "azure-iot-device-mqtt";
 import { Client as AzureClient } from "azure-iothub";
 
@@ -170,6 +175,54 @@ async function monitorDevice(
   }
 }
 
+async function onDirectMethod(
+  request: DeviceMethodRequest,
+  response: DeviceMethodResponse
+) {
+  console.log(`Received method call for method: ${request.methodName}`);
+
+  console.log(`${request.methodName} triggered!`);
+
+  const { deviceId } = request.payload;
+  console.log(`Stopping device: ${deviceId}`);
+
+  try {
+    const session = await opcuaClient.createSession();
+    const methodId = `ns=${NS};s=${deviceId}/${request.methodName}`;
+    const objectId = `ns=${NS};s=${deviceId}`;
+
+    const result = await session.call({
+      objectId,
+      methodId,
+    });
+
+    console.log(`${request.methodName} result: ${result}`);
+
+    // Send response back to IoT Hub
+    response.send(200, `${request.methodName} executed`, (err) => {
+      if (err) {
+        console.error("Failed to send method response:", err);
+      } else {
+        console.log("Successfully sent method response.");
+      }
+    });
+  } catch (error) {
+    console.error(
+      `Error executing ${request.methodName} for ${deviceId}:`,
+      error
+    );
+    response.send(
+      500,
+      `Error executing ${request.methodName} for ${deviceId}`,
+      (err) => {
+        if (err) {
+          console.error("Failed to send error response:", err);
+        }
+      }
+    );
+  }
+}
+
 async function main() {
   try {
     await opcuaClient.connect(opcuaEndpointUrl);
@@ -188,6 +241,7 @@ async function main() {
     for (const device of devices) {
       await monitorDevice(session, subscription, device, NS);
     }
+    deviceClient.onDeviceMethod("EmergencyStop", onDirectMethod);
   } catch (err) {
     console.error("Error in OPC UA client setup:", err);
   }
