@@ -83,19 +83,6 @@
 - **Zatrzymanie Awaryjne**: W przypadku wykrycia krytycznego błędu (kod błędu 14), program automatycznie wykonuje polecenie zatrzymania awaryjnego urządzenia.
 - **Kontrola Produkcji**: Jeśli jakość produkcji spadnie poniżej 90%, program automatycznie zmniejszy tempo produkcji.
 
-## Prezentacja i Testowanie
-
-### Przygotowanie do Prezentacji
-
-- Przed przystąpieniem do prezentacji upewnij się, że:
-  - Serwer OPC UA jest uruchomiony i dostępny.
-  - Aplikacja monitorująca jest uruchomiona i działa poprawnie.
-  - Usługi w Azure są skonfigurowane i gotowe do użycia.
-
-### Testowanie Funkcjonalności
-
-- Podczas prezentacji przetestuj główne funkcjonalności aplikacji, takie jak monitorowanie danych, wysyłanie powiadomień i zarządzanie urządzeniami.
-
 ## Podsumowanie
 
 Dokumentacja opisuje sposób uruchomienia i korzystania z aplikacji do monitorowania i zarządzania urządzeniami przemysłowymi. Zawiera instrukcje krok po kroku oraz opis głównych funkcjonalności systemu.
