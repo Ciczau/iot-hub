@@ -14,6 +14,7 @@ import {
 } from "azure-iot-device";
 import { Mqtt } from "azure-iot-device-mqtt";
 import { Client as AzureClient } from "azure-iothub";
+import { EmailClient } from "@azure/communication-email";
 
 const deviceConnectionString =
   "HostName=ZajeciaWMII.azure-devices.net;DeviceId=test_device;SharedAccessKey=vZ6b5rgwh9jzhDRdVuK4rXSfV2l9LFrXHAIoTHe87pg=";
@@ -26,6 +27,9 @@ const rootPath = "RootFolder";
 const iotHubConnectionString =
   "HostName=ZajeciaWMII.azure-devices.net;SharedAccessKeyName=iothubowner;SharedAccessKey=wglxzi1SnE11spj/Js4QlM44PQLP/KZ8FAIoTGrYxKc=";
 const iotHubClient = AzureClient.fromConnectionString(iotHubConnectionString);
+const emailConnectionString =
+  "endpoint=https://emailsenderiothub.europe.communication.azure.com/;accesskey=Cz9NC/v4C2aJVk7EFMRQsaRq+LTYFk0Lw1sK9SFgi9xH4CKrvYiKVy+guIqAfWOG4DDTaDRW439Cmecc98iMxQ==";
+const emailClient = new EmailClient(emailConnectionString);
 
 type ErrorLog = { time: number; error: number };
 
@@ -91,6 +95,30 @@ async function handleDeviceError(deviceId: string, deviceData: any) {
   }
 }
 
+async function sendEmailNotification(deviceId: string, errorCode: number) {
+  const message = {
+    senderAddress:
+      "DoNotReply@de9aded2-df12-4d57-9a7a-ae7631145cd7.azurecomm.net",
+    content: {
+      subject: "Device Error Notification",
+      plainText: `Device ${deviceId} has encountered an error with code ${errorCode}.`,
+    },
+    recipients: {
+      to: [{ address: "wiktor.michalski@outlook.com" }],
+    },
+  };
+  try {
+    const poller = await emailClient.beginSend(message);
+    await poller.pollUntilDone();
+    console.log(`Email notification sent for device ${deviceId}`);
+  } catch (err) {
+    console.error(
+      `Error sending email notification for device ${deviceId}:`,
+      err
+    );
+  }
+}
+
 async function invokeMethod(deviceId: string, method: string) {
   const methodParams = {
     methodName: method,
@@ -130,6 +158,7 @@ async function monitorDevice(
   };
 
   const deviceData: { [key: string]: any } = { deviceId };
+  let lastErrorSent: number = 0;
 
   for (const [key, nodeId] of Object.entries(nodeIds)) {
     try {
@@ -159,6 +188,15 @@ async function monitorDevice(
           );
         } catch (err) {
           console.error(`Error sending data for ${deviceId} to IoT Hub`, err);
+        }
+
+        if (
+          deviceData.deviceError !== lastErrorSent &&
+          deviceData.deviceError !== null &&
+          deviceData.deviceError !== 0
+        ) {
+          lastErrorSent = deviceData.deviceError;
+          await sendEmailNotification(deviceId, deviceData.deviceError);
         }
 
         if (
