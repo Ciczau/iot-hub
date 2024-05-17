@@ -162,6 +162,15 @@ async function monitorDevice(
         }
 
         if (
+          emergencyStoppedDevices.includes(deviceId) &&
+          deviceData.productionStatus === 1
+        ) {
+          const index = emergencyStoppedDevices.indexOf(deviceId);
+          emergencyStoppedDevices.splice(index, 1);
+          await invokeMethod(deviceId, "ResetErrorStatus");
+        }
+
+        if (
           deviceData &&
           deviceData.deviceError !== 1 &&
           !emergencyStoppedDevices.includes(deviceId)
