@@ -55,6 +55,7 @@ async function browseDevices(session: ClientSession): Promise<string[]> {
 }
 
 const deviceErrors: { [deviceId: string]: ErrorLog[] } = {};
+const productionRateDecreasedTimes: { [deviceId: string]: number } = {};
 const emergencyStoppedDevices: string[] = [];
 
 function logError(deviceId: string, errorCode: number) {
@@ -270,6 +271,47 @@ async function monitorDevice(
           !emergencyStoppedDevices.includes(deviceId)
         ) {
           await handleDeviceError(deviceId, deviceData);
+        }
+
+        if (
+          typeof deviceData.goodCount === "number" &&
+          typeof deviceData.badCount === "number" &&
+          typeof deviceData.productionRate === "number"
+        ) {
+          const now = Date.now();
+          const totalProduction = deviceData.goodCount + deviceData.badCount;
+          if (totalProduction > 0) {
+            const goodProductionRate =
+              (deviceData.goodCount / totalProduction) * 100;
+            console.log(
+              `Good production rate for ${deviceId}: ${goodProductionRate.toFixed(
+                2
+              )}%`
+            );
+
+            if (
+              goodProductionRate < 90 &&
+              (now - productionRateDecreasedTimes[deviceId] > 30000 || //TODO: Idk what interval should be here
+                !productionRateDecreasedTimes[deviceId])
+            ) {
+              console.log(
+                `Decreasing production rate for ${deviceId} due to low good production rate`
+              );
+              deviceData.productionRate = Math.max(
+                deviceData.productionRate - 10,
+                0
+              );
+
+              productionRateDecreasedTimes[deviceId] = now;
+
+              await updateProductionRate(
+                session,
+                deviceId,
+                ns,
+                deviceData.productionRate
+              );
+            }
+          }
         }
       });
     } catch (err) {
