@@ -11,6 +11,7 @@ import {
   DeviceMethodRequest,
   DeviceMethodResponse,
   Message,
+  Twin,
 } from "azure-iot-device";
 import { Mqtt } from "azure-iot-device-mqtt";
 import { Client as AzureClient } from "azure-iothub";
