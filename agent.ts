@@ -212,12 +212,6 @@ async function monitorDevice(
         );
       }
     });
-
-    // Object.entries(deviceData).forEach(([key, value]) => {
-    //   if (key === "productionRate" || key === "deviceError") {
-    //     updateTwin(twin, key, value, deviceId);
-    //   }
-    // });
   });
 
   for (const [key, nodeId] of Object.entries(nodeIds)) {
