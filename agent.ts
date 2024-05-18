@@ -141,6 +141,28 @@ async function invokeMethod(deviceId: string, method: string) {
   );
 }
 
+async function updateTwin(
+  twin: Twin,
+  key: string,
+  value: string | number,
+  deviceId: string
+) {
+  if (!twin) return;
+  const patch = {
+    [deviceId.replace(/\s+/g, "")]: {
+      [key]: value,
+    },
+  };
+
+  twin.properties.reported.update(patch, (err: Error | undefined) => {
+    if (err) {
+      console.error(`Error updating twin`);
+    } else {
+      console.log(`Twin state reported: ${JSON.stringify(patch)}`);
+    }
+  });
+}
+
 async function monitorDevice(
   session: ClientSession,
   subscription: ClientSubscription,
@@ -160,6 +182,43 @@ async function monitorDevice(
 
   const deviceData: { [key: string]: any } = { deviceId };
   let lastErrorSent: number = 0;
+  let twin: Twin;
+
+  deviceClient.getTwin((err: any, deviceTwin?: Twin) => {
+    if (err) {
+      console.error("Error getting device twin: ", err);
+      return;
+    }
+    if (!deviceTwin) return;
+
+    console.log("Twin retrieved successfully");
+    twin = deviceTwin;
+
+    deviceTwin.on("properties.desired", (desiredChange: any) => {
+      console.log("Desired properties changed:", desiredChange);
+      if (desiredChange.productionRate !== undefined) {
+        // Update production rate based on desired properties
+        updateProductionRate(
+          session,
+          deviceId,
+          NS,
+          desiredChange.productionRate
+        );
+        updateTwin(
+          deviceTwin,
+          "productionRate",
+          desiredChange.productionRate,
+          deviceId
+        );
+      }
+    });
+
+    // Object.entries(deviceData).forEach(([key, value]) => {
+    //   if (key === "productionRate" || key === "deviceError") {
+    //     updateTwin(twin, key, value, deviceId);
+    //   }
+    // });
+  });
 
   for (const [key, nodeId] of Object.entries(nodeIds)) {
     try {
@@ -190,7 +249,9 @@ async function monitorDevice(
         } catch (err) {
           console.error(`Error sending data for ${deviceId} to IoT Hub`, err);
         }
-
+        if (key === "productionRate" || key === "deviceError") {
+          updateTwin(twin, key, value, deviceId);
+        }
         if (
           deviceData.deviceError !== lastErrorSent &&
           deviceData.deviceError !== null &&
@@ -220,6 +281,26 @@ async function monitorDevice(
     } catch (err) {
       console.error(`Error monitoring node ${nodeId} for ${deviceId}:`, err);
     }
+  }
+}
+
+async function updateProductionRate(
+  session: ClientSession,
+  deviceId: string,
+  ns: number,
+  newRate: number
+) {
+  try {
+    const nodeId = `ns=${ns};s=${deviceId}/ProductionRate`;
+    console.log(nodeId);
+    await session.write({
+      nodeId,
+      attributeId: AttributeIds.Value,
+      value: { value: { dataType: "Int32", value: newRate } },
+    });
+    console.log(`Updated production rate for ${deviceId} to ${newRate}`);
+  } catch (error) {
+    console.error(`Error updating production rate for ${deviceId}:`, error);
   }
 }
 
