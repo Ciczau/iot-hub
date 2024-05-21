@@ -9,14 +9,11 @@ const iotHubClient = AzureClient.fromConnectionString(iotHubConnectionString);
 export async function updateTwin(
   twin: Twin,
   key: string,
-  value: string | number,
-  deviceId: string
+  value: string | number
 ) {
   if (!twin) return;
   const patch = {
-    [deviceId.replace(/\s+/g, "")]: {
-      [key]: value,
-    },
+    [key]: value,
   };
 
   twin.properties.reported.update(patch, (err: Error | undefined) => {
@@ -31,10 +28,10 @@ export async function updateTwin(
 export async function invokeMethod(deviceId: string, method: string) {
   const methodParams = {
     methodName: method,
-    payload: { deviceId },
+    payload: {},
   };
   iotHubClient.invokeDeviceMethod(
-    "test_device",
+    deviceId.replace(/\s+/g, ""),
     methodParams,
     (err, result) => {
       if (err) {

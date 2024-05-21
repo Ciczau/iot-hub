@@ -27,6 +27,7 @@ import { NS, opcuaEndpointUrl } from "./consts";
 
 const deviceTwins: { [deviceId: string]: Twin } = {};
 const productionRateDecreasedTimes: { [deviceId: string]: number } = {};
+const deviceName = "Device 1";
 
 const handleDeviceUpdate = async (
   twin: Twin,
@@ -37,7 +38,7 @@ const handleDeviceUpdate = async (
   session: ClientSession
 ) => {
   if (key === "productionRate" || key === "deviceError") {
-    updateTwin(twin, key, value, deviceId);
+    updateTwin(twin, key, value);
   }
   if (
     emergencyStoppedDevices.includes(deviceId) &&
@@ -135,12 +136,7 @@ async function monitorDevice(
           ns,
           desiredChange.productionRate
         );
-        updateTwin(
-          twin,
-          "productionRate",
-          desiredChange.productionRate,
-          deviceId
-        );
+        updateTwin(twin, "productionRate", desiredChange.productionRate);
       }
     });
   });
@@ -218,9 +214,7 @@ async function main() {
 
     const devices = (await browseDevices(session)) || [];
 
-    for (const device of devices) {
-      await monitorDevice(session, subscription, device, NS);
-    }
+    await monitorDevice(session, subscription, deviceName, NS);
 
     deviceClient.onDeviceMethod("EmergencyStop", onDirectMethod);
     deviceClient.onDeviceMethod("ResetErrorStatus", onDirectMethod);
@@ -237,12 +231,10 @@ async function onDirectMethod(
 ) {
   console.log(`Received method call for method: ${request.methodName}`);
 
-  const { deviceId } = request.payload;
-
   try {
     const session = await opcuaClient.createSession();
-    const methodId = `ns=${NS};s=${deviceId}/${request.methodName}`;
-    const objectId = `ns=${NS};s=${deviceId}`;
+    const methodId = `ns=${NS};s=${deviceName}/${request.methodName}`;
+    const objectId = `ns=${NS};s=${deviceName}`;
 
     const result = await session.call({
       objectId,
@@ -261,12 +253,12 @@ async function onDirectMethod(
     });
   } catch (error) {
     console.error(
-      `Error executing ${request.methodName} for ${deviceId}:`,
+      `Error executing ${request.methodName} for ${deviceName}:`,
       error
     );
     response.send(
       500,
-      `Error executing ${request.methodName} for ${deviceId}`,
+      `Error executing ${request.methodName} for ${deviceName}`,
       (err) => {
         if (err) {
           console.error("Failed to send error response:", err);
