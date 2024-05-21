@@ -5,11 +5,7 @@ import {
   handleDeviceError,
   emergencyStoppedDevices,
 } from "./controllers/opcuaController";
-import {
-  deviceClients,
-  invokeMethod,
-  updateTwin,
-} from "./controllers/iotHubController";
+import { invokeMethod, updateTwin } from "./controllers/iotHubController";
 import { sendEmailNotification } from "./controllers/emailController";
 import {
   ClientSession,
@@ -24,6 +20,7 @@ import {
   Twin,
 } from "azure-iot-device";
 import { NS, opcuaEndpointUrl } from "./consts";
+import { deviceClients } from "./configuration";
 
 const deviceTwins: { [deviceId: string]: Twin } = {};
 const productionRateDecreasedTimes: { [deviceId: string]: number } = {};

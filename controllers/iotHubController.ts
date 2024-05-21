@@ -1,24 +1,7 @@
-import { Client, Twin } from "azure-iot-device";
+import { Twin } from "azure-iot-device";
 import { Client as AzureClient } from "azure-iothub";
-import { Mqtt } from "azure-iot-device-mqtt";
-import {
-  deviceConnectionString1,
-  deviceConnectionString2,
-  iotHubConnectionString,
-} from "../consts";
+import { iotHubConnectionString } from "../consts";
 
-const deviceClients = [
-  {
-    deviceId: "Device 1",
-    azureDeviceId: "Device1",
-    client: Client.fromConnectionString(deviceConnectionString1, Mqtt),
-  },
-  {
-    deviceId: "Device 2",
-    azureDeviceId: "Device2",
-    client: Client.fromConnectionString(deviceConnectionString2, Mqtt),
-  },
-];
 const iotHubClient = AzureClient.fromConnectionString(iotHubConnectionString);
 
 export async function updateTwin(
@@ -55,5 +38,3 @@ export async function invokeMethod(deviceId: string, method: string) {
     }
   });
 }
-
-export { deviceClients };
