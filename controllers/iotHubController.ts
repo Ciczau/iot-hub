@@ -1,9 +1,24 @@
 import { Client, Twin } from "azure-iot-device";
 import { Client as AzureClient } from "azure-iothub";
 import { Mqtt } from "azure-iot-device-mqtt";
-import { deviceConnectionString, iotHubConnectionString } from "../consts";
+import {
+  deviceConnectionString1,
+  deviceConnectionString2,
+  iotHubConnectionString,
+} from "../consts";
 
-const deviceClient = Client.fromConnectionString(deviceConnectionString, Mqtt);
+const deviceClients = [
+  {
+    deviceId: "Device 1",
+    azureDeviceId: "Device1",
+    client: Client.fromConnectionString(deviceConnectionString1, Mqtt),
+  },
+  {
+    deviceId: "Device 2",
+    azureDeviceId: "Device2",
+    client: Client.fromConnectionString(deviceConnectionString2, Mqtt),
+  },
+];
 const iotHubClient = AzureClient.fromConnectionString(iotHubConnectionString);
 
 export async function updateTwin(
@@ -30,19 +45,15 @@ export async function invokeMethod(deviceId: string, method: string) {
     methodName: method,
     payload: {},
   };
-  iotHubClient.invokeDeviceMethod(
-    deviceId.replace(/\s+/g, ""),
-    methodParams,
-    (err, result) => {
-      if (err) {
-        console.error(`Error invoking ${method} for ${deviceId}`, err);
-      } else {
-        console.log(
-          `${method} invoked for ${deviceId}: ${JSON.stringify(result)}`
-        );
-      }
+  iotHubClient.invokeDeviceMethod(deviceId, methodParams, (err, result) => {
+    if (err) {
+      console.error(`Error invoking ${method} for ${deviceId}`, err);
+    } else {
+      console.log(
+        `${method} invoked for ${deviceId}: ${JSON.stringify(result)}`
+      );
     }
-  );
+  });
 }
 
-export { deviceClient };
+export { deviceClients };

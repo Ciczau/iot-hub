@@ -6,7 +6,7 @@ import {
   emergencyStoppedDevices,
 } from "./controllers/opcuaController";
 import {
-  deviceClient,
+  deviceClients,
   invokeMethod,
   updateTwin,
 } from "./controllers/iotHubController";
@@ -27,13 +27,13 @@ import { NS, opcuaEndpointUrl } from "./consts";
 
 const deviceTwins: { [deviceId: string]: Twin } = {};
 const productionRateDecreasedTimes: { [deviceId: string]: number } = {};
-const deviceName = "Device 1";
 
 const handleDeviceUpdate = async (
   twin: Twin,
   key: string,
   value: string | number,
   deviceId: string,
+  azureDeviceId: string,
   deviceData: { [key: string]: any },
   session: ClientSession
 ) => {
@@ -41,20 +41,20 @@ const handleDeviceUpdate = async (
     updateTwin(twin, key, value);
   }
   if (
-    emergencyStoppedDevices.includes(deviceId) &&
+    emergencyStoppedDevices.includes(azureDeviceId) &&
     deviceData.productionStatus === 1
   ) {
-    const index = emergencyStoppedDevices.indexOf(deviceId);
+    const index = emergencyStoppedDevices.indexOf(azureDeviceId);
     emergencyStoppedDevices.splice(index, 1);
-    await invokeMethod(deviceId, "ResetErrorStatus");
+    await invokeMethod(azureDeviceId, "ResetErrorStatus");
   }
 
   if (
     deviceData &&
     deviceData.deviceError !== 1 &&
-    !emergencyStoppedDevices.includes(deviceId)
+    !emergencyStoppedDevices.includes(azureDeviceId)
   ) {
-    await handleDeviceError(deviceId, deviceData);
+    await handleDeviceError(azureDeviceId, deviceData);
   }
 
   if (
@@ -99,7 +99,9 @@ async function monitorDevice(
   session: ClientSession,
   subscription: ClientSubscription,
   deviceId: string,
-  ns: number
+  azureDeviceId: string,
+  ns: number,
+  deviceClient: any
 ) {
   const nodeIds = {
     temperature: `ns=${ns};s=${deviceId}/Temperature`,
@@ -177,6 +179,7 @@ async function monitorDevice(
             key,
             value,
             deviceId,
+            azureDeviceId,
             deviceData,
 
             session
@@ -214,10 +217,26 @@ async function main() {
 
     const devices = (await browseDevices(session)) || [];
 
-    await monitorDevice(session, subscription, deviceName, NS);
-
-    deviceClient.onDeviceMethod("EmergencyStop", onDirectMethod);
-    deviceClient.onDeviceMethod("ResetErrorStatus", onDirectMethod);
+    for (const deviceClient of deviceClients) {
+      if (devices.includes(deviceClient.deviceId)) {
+        monitorDevice(
+          session,
+          subscription,
+          deviceClient.deviceId,
+          deviceClient.azureDeviceId,
+          NS,
+          deviceClient.client
+        );
+      }
+      deviceClient.client.onDeviceMethod("EmergencyStop", (request, response) =>
+        onDirectMethod(request, response, deviceClient.deviceId)
+      );
+      deviceClient.client.onDeviceMethod(
+        "ResetErrorStatus",
+        (request, response) =>
+          onDirectMethod(request, response, deviceClient.deviceId)
+      );
+    }
   } catch (err) {
     console.error("Error in OPC UA client setup:", err);
   }
@@ -227,14 +246,15 @@ main();
 
 async function onDirectMethod(
   request: DeviceMethodRequest,
-  response: DeviceMethodResponse
+  response: DeviceMethodResponse,
+  deviceId: string
 ) {
   console.log(`Received method call for method: ${request.methodName}`);
-
+  console.log(request);
   try {
     const session = await opcuaClient.createSession();
-    const methodId = `ns=${NS};s=${deviceName}/${request.methodName}`;
-    const objectId = `ns=${NS};s=${deviceName}`;
+    const methodId = `ns=${NS};s=${deviceId}/${request.methodName}`;
+    const objectId = `ns=${NS};s=${deviceId}`;
 
     const result = await session.call({
       objectId,
@@ -253,12 +273,12 @@ async function onDirectMethod(
     });
   } catch (error) {
     console.error(
-      `Error executing ${request.methodName} for ${deviceName}:`,
+      `Error executing ${request.methodName} for ${deviceId}:`,
       error
     );
     response.send(
       500,
-      `Error executing ${request.methodName} for ${deviceName}`,
+      `Error executing ${request.methodName} for ${deviceId}`,
       (err) => {
         if (err) {
           console.error("Failed to send error response:", err);
